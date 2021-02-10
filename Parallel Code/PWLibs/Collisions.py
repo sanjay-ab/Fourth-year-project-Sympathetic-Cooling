@@ -6,8 +6,10 @@ from sys import platform
 from scipy.interpolate import interp1d
 
 amu = sc.physical_constants["atomic mass constant"][0] #atomic mass unit
-mLi = 6.941*amu #mass of lithium and hydrogen in kg
-mH = 1.008*amu
+mLi = 6.941*amu #mass of lithium in kg
+mH = 1.008*amu #mass of hydrogen in kg
+M = mLi + mH #total mass of both atoms
+reduced_mass = (mLi*mH)/M
 
 if platform == "win32":
 	slash = "\\"
@@ -47,7 +49,7 @@ def check_collisions(HRange, N, dt, gamma):
             v_h = atom[3:] #velocity of hydrogen atom
             v_li = np.array(dist.rvs(3)) #velocity of a randomly chosen lithium atom.
             v_r = np.linalg.norm(v_h - v_li) #relative velocity between the two atoms
-            Energy = 0.5 * (mH * np.dot(v_h,v_h) + mLi * np.dot(v_li,v_li)) #calculate collision energy
+            Energy = 0.5 * reduced_mass * v_r**2 #calculate collision energy - the energy available for the collision in the centre of mass frame (excludes energy due to movement of CoM)
 
             P = cross_section(Energy) * v_r * dt * tot_number_density #probability of a collision
         if np.random.rand()<(P*(1+gamma)): #check against prob of (elastic + inelastic) collision.
@@ -57,7 +59,7 @@ def check_collisions(HRange, N, dt, gamma):
                 indicies.append(n) #mark row to remove hydrogen from trap.
                 continue 
 
-            vc = (mH*v_h + mLi * v_li)/(mH + mLi) #centre of mass velocity
+            vc = (mH*v_h + mLi * v_li)/M #centre of mass velocity
             p = (v_h - vc)*mH #transform momentum into centre of mass frame
             
             #now choose random b vector orthogonal to p
