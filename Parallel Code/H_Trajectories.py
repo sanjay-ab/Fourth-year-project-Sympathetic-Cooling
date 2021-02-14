@@ -4,7 +4,8 @@ import time
 from math import isnan
 from sys import platform
 from os import cpu_count
-import itertools 
+import itertools
+from csv import writer 
 
 import numpy as np
 import scipy.constants as sc
@@ -17,10 +18,12 @@ from PWLibs.TrapVV import rVV  # Velocity Verlet numerical integrator module
 from PWLibs.Plotting import plotting #imports plotting module.
 
 mH = 1.008*sc.physical_constants["atomic mass constant"][0] # mass H
-Nli = 7.5e9 # Number of lithium atoms. (max value is 7.5e9 due to max density of 1e17m^-3)
+Nli = 1e7 # Number of lithium atoms. (max value is 7.5e9 due to max density of 1e17m^-3)
 gamma = 1e-3 #inelastic to elastic collision ratio, default is 1e-3
 dt = 1e-6	# timestep of simulation
-t_end = 0.001	# when do we want to stop the simulation
+t_end = 0.1	# when do we want to stop the simulation
+times_to_save=[] #list times in the simulation in which to save the data
+number_of_saves = len(times_to_save)
 timer = time.perf_counter()
 
 
@@ -47,6 +50,7 @@ def iterate(atom_array, index, n_chunks):
 
 	t = 0 #initialise time variable counter
 	loop = time.perf_counter()
+	pointer = 0
 
 	while t < t_end:
 
@@ -59,6 +63,15 @@ def iterate(atom_array, index, n_chunks):
 		if time.perf_counter()- loop > 60:	# every 60 seconds this will meet this criterion and run the status update code below
 			print(f'Chunk {index} loop ' + '{:.1f}'.format(100 * (t / t_end)) + ' % complete. Time elapsed: {}s'.format(int(time.perf_counter()-timer)))	# percentage complete
 			loop = time.perf_counter()	# reset status counter
+
+		if pointer != number_of_saves:
+			if t>times_to_save[pointer]:
+				with open(f"Output{slash}H_end gamma={gamma} t={times_to_save[pointer]} dt={dt} Nli=" + format(Nli,".1e") + ".csv",'a+',newline='') as outfile:
+					csv_writer = writer(outfile)
+					for row in atom_array:
+						csv_writer.writerow(row)
+
+				pointer += 1
 
 	print("\n Chunk {} of {} complete. \n Time elapsed: {}s.".format(index, n_chunks, int(time.perf_counter()-timer))) #print index to get a sense of how far through the iteration we are
 	return atom_array #return the chunk
