@@ -3,7 +3,6 @@ import scipy.constants as sc
 from math import isnan
 import scipy.stats
 from sys import platform
-from scipy.interpolate import interp1d
 
 amu = sc.physical_constants["atomic mass constant"][0] #atomic mass unit
 mLi = 6.941*amu #mass of lithium in kg
@@ -15,10 +14,9 @@ if platform == "win32":
 	slash = "\\"
 elif platform == "linux" or "linux2":
 	slash = "/"
-number_density_profile_data = np.genfromtxt(f"Input{slash}Li_init_Pos140uK.csv", delimiter=',') #get lithium number density divided by N (N = no. lithium atoms) at 140uK for each cartesian direction (Density is symmetrical in x, y, z)
-cross_section_data = np.genfromtxt(f"Input{slash}mom_transfer_cross_section_SI.csv",delimiter = ",") #momentum transfer cross section for different collision energy
-number_density_profile = interp1d(number_density_profile_data[:,0],number_density_profile_data[:,1],kind='linear',assume_sorted=True, bounds_error=False) #interpolator for the number density profile
-cross_section = interp1d(cross_section_data[:,0],cross_section_data[:,1], kind='linear',assume_sorted=True, bounds_error=False) #interpolator for cross section
+#can replace the arrays and binary searches below with interpolators for slightly increased accuracy but this increases execution time by ~2x.
+number_density_profile = np.genfromtxt(f"Input{slash}old_Li_init_Pos140uK.csv", delimiter=',') #get lithium number density divided by N (N = no. lithium atoms) at 140uK for each cartesian direction (Density is symmetrical in x, y, z)
+cross_section = np.genfromtxt(f"Input{slash}mom_transfer_cross_section_SI.csv",delimiter = ",") #momentum transfer cross section for different collision energy
 dist = scipy.stats.johnsonsu(-0.01636474,  1.635485,   -0.01688527,  1.14395079) #velocity distn of lithiums for 140uK
 
 def check_collisions(HRange, N, dt, gamma): 
@@ -39,7 +37,8 @@ def check_collisions(HRange, N, dt, gamma):
                 tot_number_density = 0
                 break
             else:
-                tot_number_density += number_density_profile(coord) #for each coordinate x, y, z find number density in that axis for the particle and add them together for an average.
+                loc = np.searchsorted(number_density_profile[:,0],coord,side='right') #find index of number density
+                tot_number_density += number_density_profile[loc,1] #for each coordinate x, y, z find number density in that axis for the particle and add them together for an average.
 
         if tot_number_density == 0:
             continue #if no number density then move onto next particle in loop
@@ -51,7 +50,10 @@ def check_collisions(HRange, N, dt, gamma):
             v_r = np.linalg.norm(v_h - v_li) #relative velocity between the two atoms
             Energy = 0.5 * reduced_mass * v_r**2 #calculate collision energy - the energy available for the collision in the centre of mass frame (excludes energy due to movement of CoM)
 
-            P = cross_section(Energy) * v_r * dt * tot_number_density #probability of a collision
+            loc = np.searchsorted(cross_section[:,0], Energy, side='right') #find index of cross section
+            CS = 0.5*(cross_section[loc,1] + cross_section[loc-1,1]) #calculate average cross section from the cross sections corresponding to energies adjacent to E.
+
+            P = CS * v_r * dt * tot_number_density #probability of a collision
         if np.random.rand()<(P*(1+gamma)): #check against prob of (elastic + inelastic) collision.
             #collision occurs
             if np.random.rand()<gamma:
