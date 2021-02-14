@@ -33,7 +33,7 @@ if platform == "win32":
 elif platform == "linux" or "linux2":
 	slash = "/"
 
-trapfield=np.genfromtxt(f"Input{slash}Trap.csv", delimiter=',') # Load MT-MOT magnetic field
+trapfield=np.genfromtxt(f"Input{slash}SmCo28.csv", delimiter=',') # Load MT-MOT magnetic field
 trapfield[:,:3]*=1e-3 # Modelled the field in mm for ease, make ;it m
 # This is a vector field but the next piece of code automatically takes the magnitude of the field
 
@@ -65,7 +65,7 @@ def iterate(atom_array, index, n_chunks):
 			loop = time.perf_counter()	# reset status counter
 
 		if pointer != number_of_saves:
-			if t>times_to_save[pointer]:
+			if t>times_to_save[pointer]: #save data to file at specified time through iteration
 				with open(f"Output{slash}H_end gamma={gamma} t={times_to_save[pointer]} dt={dt} Nli=" + format(Nli,".1e") + ".csv",'a+',newline='') as outfile:
 					csv_writer = writer(outfile)
 					for row in atom_array:
