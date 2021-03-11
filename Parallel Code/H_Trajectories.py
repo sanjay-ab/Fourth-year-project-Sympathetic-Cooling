@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import concurrent.futures #for parallel processing
 import time
 from math import isnan
@@ -18,11 +19,12 @@ from PWLibs.TrapVV import rVV  # Velocity Verlet numerical integrator module
 from PWLibs.Plotting import plotting #imports plotting module.
 
 mH = 1.008*sc.physical_constants["atomic mass constant"][0] # mass H
-Nli = 1e7 # Number of lithium atoms. (max value is 7.5e9 due to max density of 1e17m^-3)
+Nli = 8.77e9 # Number of lithium atoms. (max value is 8.77e9 due to max density of 1e17m^-3)
 gamma = 1e-3 #inelastic to elastic collision ratio, default is 1e-3
 dt = 1e-6	# timestep of simulation
-t_end = 0.1	# when do we want to stop the simulation
-times_to_save=[] #list times in the simulation in which to save the data
+dt2 = 1e-5
+t_end = 60	# when do we want to stop the simulation
+times_to_save=[0.1,0.5,1,2,3,4,5,10,15,20,25,30,35,40,45,50,55] #list times in the simulation in which to save the data
 number_of_saves = len(times_to_save)
 timer = time.perf_counter()
 
@@ -32,6 +34,8 @@ if platform == "win32":
 	slash = "\\"
 elif platform == "linux" or "linux2":
 	slash = "/"
+
+HRange_init = np.genfromtxt(f"Input{slash}H_init t=1e-4 dt=1e-6.csv", delimiter=',') #take initial hydrogen distn. Can replace with makeH function if desired
 
 trapfield=np.genfromtxt(f"Input{slash}SmCo28.csv", delimiter=',') # Load MT-MOT magnetic field
 trapfield[:,:3]*=1e-3 # Modelled the field in mm for ease, make ;it m
@@ -45,7 +49,7 @@ HEnergies = Hzeeman(trapfield)	# this instantiates the H Zeeman energy class wit
 HU11Interp = tricubic(HEnergies.U11,'quiet') #This creates an instance of the tricubic interpolator for this energy field
 # We can now query arbitrary coordinates within the trap volume and get the interpolated Zeeman energy and its gradient
 
-def iterate(atom_array, index, n_chunks):
+def iterate(atom_array, index, n_chunks, dt=dt):
 	"""Function where computation for chunks takes place"""
 
 	t = 0 #initialise time variable counter
@@ -73,12 +77,13 @@ def iterate(atom_array, index, n_chunks):
 
 				pointer += 1
 
+		if dt != dt2 and t>1: #have small dt when t<1 and larger dt for t>1
+			dt = dt2
+
 	print("\n Chunk {} of {} complete. \n Time elapsed: {}s.".format(index, n_chunks, int(time.perf_counter()-timer))) #print index to get a sense of how far through the iteration we are
 	return atom_array #return the chunk
 
-def main():
-
-	HRange_init = np.genfromtxt(f"Input{slash}H_init t=1e-4 dt=1e-6.csv", delimiter=',') #take initial hydrogen distn 
+def main(HRange_init):
 
 	print("Solving particle motion:")
 	#moves all particles velocities and postions through a time dt. Uses the velocity verlet integration since we need to integrate over the potential to find the path of the particles.
@@ -120,4 +125,4 @@ def main():
 	print("Done")
 
 if __name__ == "__main__":
-	main()
+	main(HRange_init)
