@@ -15,9 +15,9 @@ if platform == "win32":
 elif platform == "linux" or "linux2":
 	slash = "/"
 #can replace the arrays and binary searches below with interpolators for slightly increased accuracy but this increases execution time by ~2x.
-number_density_profile = np.genfromtxt(f"Input{slash}old_Li_init_Pos140uK.csv", delimiter=',') #get lithium number density divided by N (N = no. lithium atoms) at 140uK for each cartesian direction (Density is symmetrical in x, y, z)
+number_density_profile = np.genfromtxt(f"Input{slash}Li_initial_positions_300uk.csv", delimiter=',') #get lithium number density divided by N (N = no. lithium atoms) at 140uK for each cartesian direction (Density is symmetrical in x, y, z)
 cross_section = np.genfromtxt(f"Input{slash}mom_transfer_cross_section_SI.csv",delimiter = ",") #momentum transfer cross section for different collision energy
-dist = scipy.stats.johnsonsu(-0.01636474,  1.635485,   -0.01688527,  1.14395079) #velocity distn of lithiums for 140uK
+dist = scipy.stats.norm(0,0.5994689389) #velocity distn of lithiums for 300uk
 
 def check_collisions(HRange, N, dt, gamma): 
     """Function calculates the probability of a collision for each hydrogen atom and computes and elastic collision if one occurs"""
