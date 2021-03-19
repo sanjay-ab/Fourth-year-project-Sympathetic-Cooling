@@ -4,7 +4,7 @@ import concurrent.futures #for parallel processing
 import time
 from math import isnan
 from sys import platform
-from os import cpu_count
+from os import cpu_count, mkdir
 import itertools
 from csv import writer 
 
@@ -19,7 +19,7 @@ from PWLibs.TrapVV import rVV  # Velocity Verlet numerical integrator module
 from PWLibs.Plotting import plotting #imports plotting module.
 
 mH = 1.008*sc.physical_constants["atomic mass constant"][0] # mass H
-Nli = 8.77e9 # Number of lithium atoms. (max value is 8.77e9 due to max density of 1e17m^-3)
+Nli = 8.97e9 # Number of lithium atoms. (max value is 8.970e9 due to max density of 1e17m^-3)
 gamma = 1e-3 #inelastic to elastic collision ratio, default is 1e-3
 dt = 1e-6	# timestep of simulation
 dt2 = 1e-5
@@ -27,7 +27,7 @@ t_end = 60	# when do we want to stop the simulation
 times_to_save=[0.1,0.5,1,2,3,4,5,10,15,20,25,30,35,40,45,50,55] #list times in the simulation in which to save the data
 number_of_saves = len(times_to_save)
 timer = time.perf_counter()
-
+namestr = "Nli="+format(Nli,".1e")+ f" gamma={gamma}"
 
 # Location of the field source file, depending on operating platform
 if platform == "win32":
@@ -35,7 +35,7 @@ if platform == "win32":
 elif platform == "linux" or "linux2":
 	slash = "/"
 
-HRange_init = np.genfromtxt(f"Input{slash}H_init t=1e-4 dt=1e-6.csv", delimiter=',') #take initial hydrogen distn. Can replace with makeH function if desired
+HRange_init = np.genfromtxt(f"Input{slash}H_init t=5e-3 dt=1e-6.csv", delimiter=',') #take initial hydrogen distn. Can replace with makeH function if desired
 
 trapfield=np.genfromtxt(f"Input{slash}SmCo28.csv", delimiter=',') # Load MT-MOT magnetic field
 trapfield[:,:3]*=1e-3 # Modelled the field in mm for ease, make ;it m
@@ -70,7 +70,7 @@ def iterate(atom_array, index, n_chunks, dt=dt):
 
 		if pointer != number_of_saves:
 			if t>times_to_save[pointer]: #save data to file at specified time through iteration
-				with open(f"Output{slash}H_end gamma={gamma} t={times_to_save[pointer]} dt={dt} Nli=" + format(Nli,".1e") + ".csv",'a+',newline='') as outfile:
+				with open(f"Output{slash}{namestr}{slash}H_end gamma={gamma} t={times_to_save[pointer]} dt={dt} Nli=" + format(Nli,".1e") + ".csv",'a+',newline='') as outfile:
 					csv_writer = writer(outfile)
 					for row in atom_array:
 						csv_writer.writerow(row)
@@ -86,9 +86,12 @@ def iterate(atom_array, index, n_chunks, dt=dt):
 def main(HRange_init):
 
 	print("Solving particle motion:")
+	try:
+		mkdir(f"Output{slash}{namestr}")
+	except:
+		pass
 	#moves all particles velocities and postions through a time dt. Uses the velocity verlet integration since we need to integrate over the potential to find the path of the particles.
 	#we also need the interpolator since the field is not known continuously we need to need to interpolate between known points to get the whole field
-
 	#use concurrent.futures module to calculate the paths of each hydrogen particle in parallel for faster execution
 	chunks_per_workers = 1 #number of chunks per worker - vary between 1 and 40 for efficient execution depending on the length of the simulation
 	n_chunks = chunks_per_workers * cpu_count() #number of chunks (cpu_count yields the number of logical processors on the system)
@@ -116,13 +119,13 @@ def main(HRange_init):
 	print(f"Time elapsed: {int(time.perf_counter()-timer)}s")  #can't just use time.perf_counter() since this is not equal to the simulation time when executing on the supercomputer
 
 	print("Saving output")
-	np.savetxt(f"Output{slash}H_init.csv", HRange_init, delimiter=',')
-	np.savetxt(f"Output{slash}H_end gamma={gamma} t={t_end} dt={dt} Nli=" + format(Nli,".1e") + ".csv", HRange, delimiter=',')
+	np.savetxt(f"Output{slash}{namestr}{slash}H_init.csv", HRange_init, delimiter=',')
+	np.savetxt(f"Output{slash}{namestr}{slash}H_end gamma={gamma} t={t_end} dt={dt} Nli=" + format(Nli,".1e") + ".csv", HRange, delimiter=',')
 	print("Done")
 
-	print("Graphing output")
-	plotting(HRange, HRange_init) 
-	print("Done")
+	#print("Graphing output")
+	#plotting(HRange, HRange_init) 
+	#print("Done")
 
 if __name__ == "__main__":
 	main(HRange_init)
