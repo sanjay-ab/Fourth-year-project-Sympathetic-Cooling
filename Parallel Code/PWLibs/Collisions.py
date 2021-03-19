@@ -3,6 +3,7 @@ import scipy.constants as sc
 from math import isnan
 import scipy.stats
 from sys import platform
+from scipy.interpolate import interp1d
 
 amu = sc.physical_constants["atomic mass constant"][0] #atomic mass unit
 mLi = 6.941*amu #mass of lithium in kg
@@ -15,9 +16,10 @@ if platform == "win32":
 elif platform == "linux" or "linux2":
 	slash = "/"
 #can replace the arrays and binary searches below with interpolators for slightly increased accuracy but this increases execution time by ~2x.
-number_density_profile = np.genfromtxt(f"Input{slash}Li_initial_positions_300uk.csv", delimiter=',') #get lithium number density divided by N (N = no. lithium atoms) at 140uK for each cartesian direction (Density is symmetrical in x, y, z)
-cross_section = np.genfromtxt(f"Input{slash}mom_transfer_cross_section_SI.csv",delimiter = ",") #momentum transfer cross section for different collision energy
-dist = scipy.stats.norm(0,0.5994689389) #velocity distn of lithiums for 300uk
+number_density_profile = np.genfromtxt(f"Input{slash}Li_initial_distribution_350uk.csv", delimiter=',') #get lithium number density divided by N (N = no. lithium atoms) at 140uK for each cartesian direction (Density is symmetrical in x, y, z)
+cross_section_data = np.genfromtxt(f"Input{slash}mom_transfer_cross_section_SI.csv",delimiter = ",") #momentum transfer cross section for different collision energy
+cross_section = interp1d(cross_section_data[:,0],cross_section_data[:,1], kind='linear',assume_sorted=True, bounds_error=False) #interpolator for cross section
+dist = scipy.stats.norm(0,0.6475004583) #velocity distn of lithiums for 350uk
 
 def check_collisions(HRange, N, dt, gamma): 
     """Function calculates the probability of a collision for each hydrogen atom and computes and elastic collision if one occurs"""
@@ -50,10 +52,7 @@ def check_collisions(HRange, N, dt, gamma):
             v_r = np.linalg.norm(v_h - v_li) #relative velocity between the two atoms
             Energy = 0.5 * reduced_mass * v_r**2 #calculate collision energy - the energy available for the collision in the centre of mass frame (excludes energy due to movement of CoM)
 
-            loc = np.searchsorted(cross_section[:,0], Energy, side='right') #find index of cross section
-            CS = 0.5*(cross_section[loc,1] + cross_section[loc-1,1]) #calculate average cross section from the cross sections corresponding to energies adjacent to E.
-
-            P = CS * v_r * dt * tot_number_density #probability of a collision
+            P = cross_section(Energy) * v_r * dt * tot_number_density #probability of a collision
         if np.random.rand()<(P*(1+gamma)): #check against prob of (elastic + inelastic) collision.
             #collision occurs
             if np.random.rand()<gamma:
